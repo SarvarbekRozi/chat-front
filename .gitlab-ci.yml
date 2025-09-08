@@ -1,0 +1,39 @@
+stages:
+  - build
+  - deploy
+
+Build:
+  stage: build
+  only:
+    - "main"
+  when: manual
+  environment: production
+  variables:
+    NODE_OPTIONS: --max-old-space-size=4096
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    name: "MARVARID"
+    expire_in: 1 week
+    paths:
+      - dist/
+
+  tags: [build]
+
+Deploy:
+  stage: deploy
+  only:
+    - "main"
+  needs: [Build]
+  when: manual
+  environment: Production
+  before_script:
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_KEY")
+    - mkdir -p ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+  script:
+    - rsync -arv --cvs-exclude --delete $TARGET_DIR_ON_LOCAL $SSH_USER@$HOST:$TARGET_DIR_ON_SERVER
+  tags: [deploy]
